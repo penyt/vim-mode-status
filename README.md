@@ -42,11 +42,6 @@ _(Once the plugin is approved)_
 4. Move the downloaded files into that folder.
 5. Reload Obsidian and enable the plugin in **Settings** > **Community plugins**.
 
-## Development
-
-1. Clone this repository.
-2. Run `npm install` to install dependencies.
-3. Run `npm run dev` to start compilation in watch mode.
 
 ## License
 
