@@ -5,7 +5,7 @@
 	"minAppVersion": "0.15.0",
 	"description": "Show Vim mode (Normal/Insert/Visual) in the status bar with colors.",
 	"author": "penyt",
-	"authorUrl": "https://github.com/penyt/vim-mode-status",
+	"authorUrl": "https://github.com/penyt",
 	"fundingUrl": "https://www.buymeacoffee.com/penyt",
 	"isDesktopOnly": false
 }
