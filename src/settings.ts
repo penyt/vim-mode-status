@@ -1,6 +1,8 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import VimModeStatusPlugin from "./main";
 
+/* eslint-disable obsidianmd/ui/sentence-case */
+
 export interface VimModeStatusSettings {
 	normalColor: string;
 	insertColor: string;

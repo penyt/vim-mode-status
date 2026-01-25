@@ -11,6 +11,7 @@ type VimMode = "OFF" | "NORMAL" | "INSERT" | "VISUAL" | "REPLACE" | "COMMAND";
 export default class VimModeStatusPlugin extends Plugin {
 	settings: VimModeStatusSettings;
 	private statusEl!: HTMLElement;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	private currentCm: any = null;
 	private currentView: MarkdownView | null = null;
 	private detachFns: Array<() => void> = [];
@@ -53,7 +54,9 @@ export default class VimModeStatusPlugin extends Plugin {
 		for (const fn of this.detachFns) {
 			try {
 				fn();
-			} catch {}
+			} catch {
+				// empty
+			}
 		}
 		this.detachFns = [];
 	}
@@ -62,7 +65,7 @@ export default class VimModeStatusPlugin extends Plugin {
 		this.settings = Object.assign(
 			{},
 			DEFAULT_SETTINGS,
-			await this.loadData(),
+			(await this.loadData()) as VimModeStatusSettings,
 		);
 	}
 
@@ -90,36 +93,51 @@ export default class VimModeStatusPlugin extends Plugin {
 		}
 
 		this.currentView = view;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
 		const editorAny: any =
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
 			(view as any).editor ?? (view as any).sourceMode?.cmEditor;
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 		const cm =
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 			editorAny?.cm ??
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 			editorAny?.cm?.cm ??
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 			editorAny?.cm6 ??
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 			editorAny?.editorView ??
 			null;
 
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 		this.currentCm = cm;
 		this.refreshMode();
 
 		// Attempt to attach event (backward compatibility)
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 		if (cm?.on && typeof cm.on === "function") {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const onVimModeChange = (e: any) => {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 				const mode = this.normalizeMode(e?.mode);
 				this.setMode(mode);
 			};
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 			cm.on("vim-mode-change", onVimModeChange);
 			this.detachFns.push(() => {
 				try {
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 					cm.off?.("vim-mode-change", onVimModeChange);
-				} catch {}
+				} catch {
+					// empty
+				}
 			});
 		}
 
 		// DOM event fallback
 		const container =
-			(view.contentEl.querySelector(".cm-editor") as HTMLElement) ??
-			(view.contentEl.querySelector(".cm-content") as HTMLElement) ??
+			view.contentEl.querySelector(".cm-editor") ??
+			view.contentEl.querySelector(".cm-content") ??
 			view.contentEl;
 
 		const handler = () => this.refreshMode();
@@ -142,6 +160,7 @@ export default class VimModeStatusPlugin extends Plugin {
 		this.setMode(mode);
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	private detectMode(cm: any): VimMode {
 		if (!cm) return "OFF";
 
@@ -150,15 +169,14 @@ export default class VimModeStatusPlugin extends Plugin {
 			const vimPanel =
 				this.currentView.contentEl.querySelector(".cm-vim-panel");
 			if (vimPanel) {
-				const input = vimPanel.querySelector(
-					"input",
-				) as HTMLInputElement | null;
+				const input = vimPanel.querySelector("input");
 				if (input && document.activeElement === input) {
 					return "COMMAND";
 				}
 			}
 		}
 
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
 		const vimState = cm?.state?.vim ?? cm?.cm?.state?.vim;
 		if (!vimState) {
 			// If vim state object is not found, treat as OFF
@@ -169,19 +187,26 @@ export default class VimModeStatusPlugin extends Plugin {
 		return this.detectFromVimState(vimState);
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	private detectFromVimState(vimState: any): VimMode {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 		if (vimState.replace) return "REPLACE"; // Flag for some versions
 
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 		if (typeof vimState?.mode === "string") {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 			return this.normalizeMode(vimState.mode);
 		}
 
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 		if (vimState?.insertMode) return "INSERT";
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 		if (vimState?.visualMode) return "VISUAL";
 
 		return "NORMAL";
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	private normalizeMode(m: any): VimMode {
 		const s = String(m ?? "").toUpperCase();
 		if (s.includes("INSERT")) return "INSERT";
