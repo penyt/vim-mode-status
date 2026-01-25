@@ -1,6 +1,6 @@
 {
 	"name": "vim-mode-status",
-	"version": "0.1.0",
+	"version": "1.0.0",
 	"description": "Show Vim mode (Normal/Insert/Visual) in the status bar with colors.",
 	"main": "main.js",
 	"type": "module",
