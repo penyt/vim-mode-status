@@ -29,10 +29,10 @@ You can customize the following options in **Settings > Vim Mode Status**:
 
 _(Once the plugin is approved)_
 
-1. Open **Settings** > **Community plugins**.
-2. Turn off **Safe mode**.
-3. Click **Browse** and search for **Vim Mode Status**.
-4. Click **Install** and then **Enable**.
+1. Open `Settings` > `Community plugins`.
+2. Turn off `Restricted mode`.
+3. Click `Browse` and search for `Vim Mode Status`.
+4. Click `Install` and then `Enable`.
 
 ### Manual Installation
 
@@ -47,5 +47,5 @@ _(Once the plugin is approved)_
 [MIT](LICENSE)
 
 ## Donate
-
+If you find this plugin helpful, please give me a GitHub star or buy me a coffee!  
 <a href="https://www.buymeacoffee.com/penyt" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
