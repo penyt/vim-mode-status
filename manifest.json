@@ -1,11 +1,11 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
-	"version": "1.0.0",
+	"id": "vim-mode-status",
+	"name": "Vim Mode Status",
+	"version": "0.1.0",
 	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"description": "Show Vim mode (Normal/Insert/Visual) in the status bar with colors.",
+	"author": "penyt",
+	"authorUrl": "https://github.com/penyt/vim-mode-status",
+	"fundingUrl": "https://www.buymeacoffee.com/penyt",
 	"isDesktopOnly": false
 }

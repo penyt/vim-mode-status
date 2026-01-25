@@ -1,99 +1,282 @@
-import {App, Editor, MarkdownView, Modal, Notice, Plugin} from 'obsidian';
-import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
+import { Plugin, MarkdownView, WorkspaceLeaf } from "obsidian";
+import {
+	VimModeStatusSettings,
+	DEFAULT_SETTINGS,
+	VimModeStatusSettingTab,
+} from "./settings";
 
-// Remember to rename these classes and interfaces!
+// Add REPLACE
+type VimMode = "OFF" | "NORMAL" | "INSERT" | "VISUAL" | "REPLACE" | "COMMAND";
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class VimModeStatusPlugin extends Plugin {
+	settings: VimModeStatusSettings;
+	private statusEl!: HTMLElement;
+	private currentCm: any = null;
+	private currentView: MarkdownView | null = null;
+	private detachFns: Array<() => void> = [];
+	private hasSeenVimState = false;
 
 	async onload() {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		this.addRibbonIcon('dice', 'Sample', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
+		this.statusEl = this.addStatusBarItem();
+		this.statusEl.addClass("vim-mode-statusbar");
+		this.updateStatusColors();
+		this.setMode("OFF");
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status bar text');
+		this.addSettingTab(new VimModeStatusSettingTab(this.app, this));
 
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-modal-simple',
-			name: 'Open modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'replace-selected',
-			name: 'Replace selected content',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				editor.replaceSelection('Sample editor command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-modal-complex',
-			name: 'Open modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
+		this.registerEvent(
+			this.app.workspace.on("active-leaf-change", (leaf) => {
+				this.attachToLeaf(leaf);
+			}),
+		);
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
+		this.registerEvent(
+			this.app.workspace.on("layout-change", () => {
+				const leaf =
+					this.app.workspace.getActiveViewOfType(MarkdownView)?.leaf;
+				if (leaf) {
+					this.attachToLeaf(leaf);
 				}
-				return false;
-			}
-		});
+			}),
+		);
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			new Notice("Click");
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-
+		this.attachToLeaf(this.app.workspace.getMostRecentLeaf() ?? null);
 	}
 
 	onunload() {
+		this.clearAttach();
+	}
+
+	private clearAttach() {
+		for (const fn of this.detachFns) {
+			try {
+				fn();
+			} catch {}
+		}
+		this.detachFns = [];
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<MyPluginSettings>);
+		this.settings = Object.assign(
+			{},
+			DEFAULT_SETTINGS,
+			await this.loadData(),
+		);
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-	}
-}
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
+		this.updateStatusColors();
 	}
 
-	onOpen() {
-		let {contentEl} = this;
-		contentEl.setText('Woah!');
+	private attachToLeaf(leaf: WorkspaceLeaf | null) {
+		this.clearAttach();
+		this.hasSeenVimState = false;
+
+		this.currentCm = null;
+		this.currentView = null;
+
+		const view = leaf?.view;
+		if (!(view instanceof MarkdownView)) {
+			this.setMode("OFF");
+			return;
+		}
+
+		if (view.getMode() === "preview") {
+			this.setMode("OFF");
+			return;
+		}
+
+		this.currentView = view;
+		const editorAny: any =
+			(view as any).editor ?? (view as any).sourceMode?.cmEditor;
+		const cm =
+			editorAny?.cm ??
+			editorAny?.cm?.cm ??
+			editorAny?.cm6 ??
+			editorAny?.editorView ??
+			null;
+
+		this.currentCm = cm;
+		this.refreshMode();
+
+		// Attempt to attach event (backward compatibility)
+		if (cm?.on && typeof cm.on === "function") {
+			const onVimModeChange = (e: any) => {
+				const mode = this.normalizeMode(e?.mode);
+				this.setMode(mode);
+			};
+			cm.on("vim-mode-change", onVimModeChange);
+			this.detachFns.push(() => {
+				try {
+					cm.off?.("vim-mode-change", onVimModeChange);
+				} catch {}
+			});
+		}
+
+		// DOM event fallback
+		const container =
+			(view.contentEl.querySelector(".cm-editor") as HTMLElement) ??
+			(view.contentEl.querySelector(".cm-content") as HTMLElement) ??
+			view.contentEl;
+
+		const handler = () => this.refreshMode();
+
+		container.addEventListener("keydown", handler);
+		container.addEventListener("keyup", handler);
+		container.addEventListener("mouseup", handler);
+		container.addEventListener("click", handler);
+
+		this.detachFns.push(() => {
+			container.removeEventListener("keydown", handler);
+			container.removeEventListener("keyup", handler);
+			container.removeEventListener("mouseup", handler);
+			container.removeEventListener("click", handler);
+		});
 	}
 
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
+	public refreshMode() {
+		const mode = this.detectMode(this.currentCm);
+		this.setMode(mode);
+	}
+
+	private detectMode(cm: any): VimMode {
+		if (!cm) return "OFF";
+
+		// Priority check for Command Input (Obsidian's Vim Command bar)
+		if (this.currentView) {
+			const vimPanel =
+				this.currentView.contentEl.querySelector(".cm-vim-panel");
+			if (vimPanel) {
+				const input = vimPanel.querySelector(
+					"input",
+				) as HTMLInputElement | null;
+				if (input && document.activeElement === input) {
+					return "COMMAND";
+				}
+			}
+		}
+
+		const vimState = cm?.state?.vim ?? cm?.cm?.state?.vim;
+		if (!vimState) {
+			// If vim state object is not found, treat as OFF
+			return this.hasSeenVimState ? "NORMAL" : "OFF";
+		}
+
+		this.hasSeenVimState = true;
+		return this.detectFromVimState(vimState);
+	}
+
+	private detectFromVimState(vimState: any): VimMode {
+		if (vimState.replace) return "REPLACE"; // Flag for some versions
+
+		if (typeof vimState?.mode === "string") {
+			return this.normalizeMode(vimState.mode);
+		}
+
+		if (vimState?.insertMode) return "INSERT";
+		if (vimState?.visualMode) return "VISUAL";
+
+		return "NORMAL";
+	}
+
+	private normalizeMode(m: any): VimMode {
+		const s = String(m ?? "").toUpperCase();
+		if (s.includes("INSERT")) return "INSERT";
+		if (s.includes("VISUAL")) return "VISUAL";
+		if (s.includes("REPLACE")) return "REPLACE";
+		if (s.includes("CMD") || s.includes("COMMAND")) return "COMMAND";
+		if (s.includes("NORMAL")) return "NORMAL";
+		return "NORMAL"; // Fallback to Normal instead of OFF if we have a signal
+	}
+
+	private setMode(mode: VimMode) {
+		if (mode === "OFF") {
+			this.statusEl.hide();
+			return;
+		}
+		this.statusEl.show();
+
+		let displayText: string = mode;
+		if (this.settings.displayFormat === "short") {
+			this.statusEl.addClass("is-short");
+			switch (mode) {
+				case "NORMAL":
+					displayText = "N";
+					break;
+				case "INSERT":
+					displayText = "I";
+					break;
+				case "VISUAL":
+					displayText = "V";
+					break;
+				case "REPLACE":
+					displayText = "R";
+					break;
+				case "COMMAND":
+					displayText = "C";
+					break;
+			}
+		} else {
+			this.statusEl.removeClass("is-short");
+		}
+
+		this.statusEl.setText(displayText);
+
+		// Remove all potential status classes
+		this.statusEl.removeClass(
+			"is-off",
+			"is-normal",
+			"is-insert",
+			"is-visual",
+			"is-replace",
+			"is-command",
+		);
+
+		// Add corresponding class
+		switch (mode) {
+			case "NORMAL":
+				this.statusEl.addClass("is-normal");
+				break;
+			case "INSERT":
+				this.statusEl.addClass("is-insert");
+				break;
+			case "VISUAL":
+				this.statusEl.addClass("is-visual");
+				break;
+			case "REPLACE":
+				this.statusEl.addClass("is-replace");
+				break;
+			case "COMMAND":
+				this.statusEl.addClass("is-command");
+				break;
+		}
+	}
+
+	public updateStatusColors() {
+		if (!this.statusEl) return;
+
+		this.statusEl.style.setProperty(
+			"--vim-mode-color-normal",
+			this.settings.normalColor,
+		);
+		this.statusEl.style.setProperty(
+			"--vim-mode-color-insert",
+			this.settings.insertColor,
+		);
+		this.statusEl.style.setProperty(
+			"--vim-mode-color-visual",
+			this.settings.visualColor,
+		);
+		this.statusEl.style.setProperty(
+			"--vim-mode-color-replace",
+			this.settings.replaceColor,
+		);
+		this.statusEl.style.setProperty(
+			"--vim-mode-color-command",
+			this.settings.commandColor,
+		);
 	}
 }
