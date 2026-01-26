@@ -5,14 +5,33 @@ import {
 	VimModeStatusSettingTab,
 } from "./settings";
 
+interface VimState {
+	mode?: string;
+	insertMode?: boolean;
+	visualMode?: boolean;
+	replace?: boolean;
+}
+
+interface CodeMirrorEditor {
+	state?: { vim?: VimState };
+	cm?: { state?: { vim?: VimState } };
+	on?: (event: string, callback: (e: { mode: string }) => void) => void;
+	off?: (event: string, callback: (e: { mode: string }) => void) => void;
+}
+
+interface InternalEditor {
+	cm?: CodeMirrorEditor;
+	cm6?: CodeMirrorEditor;
+	editorView?: CodeMirrorEditor;
+}
+
 // Add REPLACE
 type VimMode = "OFF" | "NORMAL" | "INSERT" | "VISUAL" | "REPLACE" | "COMMAND";
 
 export default class VimModeStatusPlugin extends Plugin {
 	settings: VimModeStatusSettings;
 	private statusEl!: HTMLElement;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private currentCm: any = null;
+	private currentCm: CodeMirrorEditor | null = null;
 	private currentView: MarkdownView | null = null;
 	private detachFns: Array<() => void> = [];
 	private hasSeenVimState = false;
@@ -93,40 +112,34 @@ export default class VimModeStatusPlugin extends Plugin {
 		}
 
 		this.currentView = view;
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
-		const editorAny: any =
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-			(view as any).editor ?? (view as any).sourceMode?.cmEditor;
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-		const cm =
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-			editorAny?.cm ??
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-			editorAny?.cm?.cm ??
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-			editorAny?.cm6 ??
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-			editorAny?.editorView ??
-			null;
 
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+		const viewAny = view as unknown as {
+			editor?: InternalEditor;
+			sourceMode?: { cmEditor?: InternalEditor };
+		};
+
+		const editorAny = viewAny.editor ?? viewAny.sourceMode?.cmEditor;
+
+		const cm = (editorAny?.cm ??
+			editorAny?.cm?.cm ??
+			editorAny?.cm6 ??
+			editorAny?.editorView ??
+			null) as CodeMirrorEditor | null;
+
 		this.currentCm = cm;
 		this.refreshMode();
 
 		// Attempt to attach event (backward compatibility)
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
 		if (cm?.on && typeof cm.on === "function") {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const onVimModeChange = (e: any) => {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+			const onVimModeChange = (e: { mode: string }) => {
 				const mode = this.normalizeMode(e?.mode);
 				this.setMode(mode);
 			};
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+
 			cm.on("vim-mode-change", onVimModeChange);
 			this.detachFns.push(() => {
 				try {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 					cm.off?.("vim-mode-change", onVimModeChange);
 				} catch {
 					// empty
@@ -160,8 +173,7 @@ export default class VimModeStatusPlugin extends Plugin {
 		this.setMode(mode);
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private detectMode(cm: any): VimMode {
+	private detectMode(cm: CodeMirrorEditor | null): VimMode {
 		if (!cm) return "OFF";
 
 		// Priority check for Command Input (Obsidian's Vim Command bar)
@@ -176,7 +188,6 @@ export default class VimModeStatusPlugin extends Plugin {
 			}
 		}
 
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
 		const vimState = cm?.state?.vim ?? cm?.cm?.state?.vim;
 		if (!vimState) {
 			// If vim state object is not found, treat as OFF
@@ -187,28 +198,21 @@ export default class VimModeStatusPlugin extends Plugin {
 		return this.detectFromVimState(vimState);
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private detectFromVimState(vimState: any): VimMode {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+	private detectFromVimState(vimState: VimState): VimMode {
 		if (vimState.replace) return "REPLACE"; // Flag for some versions
 
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 		if (typeof vimState?.mode === "string") {
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 			return this.normalizeMode(vimState.mode);
 		}
 
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 		if (vimState?.insertMode) return "INSERT";
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 		if (vimState?.visualMode) return "VISUAL";
 
 		return "NORMAL";
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private normalizeMode(m: any): VimMode {
-		const s = String(m ?? "").toUpperCase();
+	private normalizeMode(m: unknown): VimMode {
+		const s = typeof m === "string" ? m.toUpperCase() : "";
 		if (s.includes("INSERT")) return "INSERT";
 		if (s.includes("VISUAL")) return "VISUAL";
 		if (s.includes("REPLACE")) return "REPLACE";

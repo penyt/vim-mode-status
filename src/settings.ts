@@ -1,8 +1,6 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import VimModeStatusPlugin from "./main";
 
-/* eslint-disable obsidianmd/ui/sentence-case */
-
 export interface VimModeStatusSettings {
 	normalColor: string;
 	insertColor: string;
@@ -34,14 +32,12 @@ export class VimModeStatusSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName("Display format")
-			.setDesc(
-				"Choose between full text (e.g. NORMAL) or abbreviation (e.g. N)",
-			)
+			.setName("Display style")
+			.setDesc("Choose between full text or abbreviation")
 			.addDropdown((dropdown) =>
 				dropdown
-					.addOption("full", "Full (NORMAL)")
-					.addOption("short", "Short (N)")
+					.addOption("full", "Full")
+					.addOption("short", "Short")
 					.setValue(this.plugin.settings.displayFormat)
 					.onChange(async (value) => {
 						this.plugin.settings.displayFormat = value as
@@ -52,11 +48,11 @@ export class VimModeStatusSettingTab extends PluginSettingTab {
 					}),
 			);
 
-		new Setting(containerEl).setName("Mode colors").setHeading();
+		new Setting(containerEl).setName("Colors").setHeading();
 
 		new Setting(containerEl)
-			.setName("Normal mode color")
-			.setDesc("Background color for Normal mode")
+			.setName("Normal color")
+			.setDesc("Background color for normal mode")
 			.addColorPicker((color) =>
 				color
 					.setValue(this.plugin.settings.normalColor)
@@ -68,8 +64,8 @@ export class VimModeStatusSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Insert mode color")
-			.setDesc("Background color for Insert mode")
+			.setName("Insert color")
+			.setDesc("Background color for insert mode")
 			.addColorPicker((color) =>
 				color
 					.setValue(this.plugin.settings.insertColor)
@@ -81,8 +77,8 @@ export class VimModeStatusSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Visual mode color")
-			.setDesc("Background color for Visual mode")
+			.setName("Visual color")
+			.setDesc("Background color for visual mode")
 			.addColorPicker((color) =>
 				color
 					.setValue(this.plugin.settings.visualColor)
@@ -94,8 +90,8 @@ export class VimModeStatusSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Replace mode color")
-			.setDesc("Background color for Replace mode")
+			.setName("Replace color")
+			.setDesc("Background color for replace mode")
 			.addColorPicker((color) =>
 				color
 					.setValue(this.plugin.settings.replaceColor)
@@ -107,8 +103,8 @@ export class VimModeStatusSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Command mode color")
-			.setDesc("Background color for Command mode")
+			.setName("Command color")
+			.setDesc("Background color for command mode")
 			.addColorPicker((color) =>
 				color
 					.setValue(this.plugin.settings.commandColor)
@@ -122,8 +118,8 @@ export class VimModeStatusSettingTab extends PluginSettingTab {
 		new Setting(containerEl).setName("Reset").setHeading();
 
 		new Setting(containerEl)
-			.setName("Reset colors to default")
-			.setDesc("Restore all mode colors to their default values.")
+			.setName("Reset colors")
+			.setDesc("Restore all mode colors to their default values")
 			.addButton((button) =>
 				button.setButtonText("Reset colors").onClick(async () => {
 					this.plugin.settings.normalColor =
