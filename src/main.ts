@@ -182,7 +182,7 @@ export default class VimModeStatusPlugin extends Plugin {
 				this.currentView.contentEl.querySelector(".cm-vim-panel");
 			if (vimPanel) {
 				const input = vimPanel.querySelector("input");
-				if (input && document.activeElement === input) {
+				if (input?.ownerDocument.activeElement === input) {
 					return "COMMAND";
 				}
 			}

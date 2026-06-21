@@ -1,8 +1,8 @@
 {
 	"id": "vim-mode-status",
 	"name": "Vim Mode Status",
-	"version": "1.0.0",
-	"minAppVersion": "0.15.0",
+	"version": "1.0.1",
+	"minAppVersion": "1.0.0",
 	"description": "Show Vim mode (Normal/Insert/Visual) in the status bar with colors.",
 	"author": "penyt",
 	"authorUrl": "https://github.com/penyt",
